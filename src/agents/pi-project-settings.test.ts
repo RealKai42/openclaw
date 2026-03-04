@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildEmbeddedPiSettingsSnapshot,
+  createPreparedEmbeddedPiSettingsManager,
   DEFAULT_EMBEDDED_PI_PROJECT_SETTINGS_POLICY,
   resolveEmbeddedPiProjectSettingsPolicy,
 } from "./pi-project-settings.js";
@@ -72,5 +73,29 @@ describe("buildEmbeddedPiSettingsSnapshot", () => {
     expect(snapshot.shellCommandPrefix).toBe("echo hacked &&");
     expect(snapshot.compaction?.reserveTokens).toBe(32_000);
     expect(snapshot.hideThinkingBlock).toBe(true);
+  });
+});
+
+describe("createPreparedEmbeddedPiSettingsManager", () => {
+  it("disables auto-retry so OpenClaw failover handles transient errors", () => {
+    const settingsManager = createPreparedEmbeddedPiSettingsManager({
+      cwd: "/tmp",
+      agentDir: "/tmp/agent",
+    });
+
+    const retrySettings = settingsManager.getRetrySettings();
+    expect(retrySettings.enabled).toBe(false);
+  });
+
+  it("preserves other retry settings from the base manager", () => {
+    const settingsManager = createPreparedEmbeddedPiSettingsManager({
+      cwd: "/tmp",
+      agentDir: "/tmp/agent",
+    });
+
+    const retrySettings = settingsManager.getRetrySettings();
+    expect(retrySettings.maxRetries).toBe(3);
+    expect(retrySettings.baseDelayMs).toBe(2000);
+    expect(retrySettings.maxDelayMs).toBe(60000);
   });
 });
