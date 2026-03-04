@@ -120,6 +120,7 @@ Interface details:
 - `cwd` (optional): requested runtime working directory (validated by backend/runtime policy).
 - `label` (optional): operator-facing label used in session/banner text.
 - `streamTo` (optional): `"parent"` streams initial ACP run progress summaries back to the requester session as system events.
+  - When available, accepted responses include `streamLogPath` pointing to a session-scoped JSONL log (`<sessionId>.acp-stream.jsonl`) you can tail for full relay history.
 
 ## Sandbox compatibility
 
