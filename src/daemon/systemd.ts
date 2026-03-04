@@ -374,10 +374,19 @@ export async function isSystemdServiceEnabled(args: GatewayServiceEnvArgs): Prom
     return true;
   }
   const detail = readSystemctlDetail(res);
-  if (isSystemctlMissing(detail) || isSystemdUnitNotEnabled(detail)) {
+  if (isSystemctlMissing(detail)) {
     return false;
   }
-  throw new Error(`systemctl is-enabled unavailable: ${detail || "unknown error"}`.trim());
+  // `systemctl is-enabled` exits non-zero for disabled / not-found / masked /
+  // static / indirect states.  On some Ubuntu/EC2 setups stdout is empty and
+  // only the generic Node "Command failed: ..." error message appears in the
+  // detail string, so keyword matching alone can miss legitimate not-enabled
+  // responses.  Treat any non-zero exit from an available systemctl binary as
+  // "not enabled" rather than crashing the gateway start flow.
+  if (isSystemdUnitNotEnabled(detail)) {
+    return false;
+  }
+  return false;
 }
 
 export async function readSystemdServiceRuntime(

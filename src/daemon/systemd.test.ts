@@ -79,16 +79,15 @@ describe("isSystemdServiceEnabled", () => {
     expect(result).toBe(false);
   });
 
-  it("throws when systemctl is-enabled fails for non-state errors", async () => {
+  it("returns false when systemctl is-enabled fails with bus error", async () => {
     const { isSystemdServiceEnabled } = await import("./systemd.js");
     execFileMock.mockImplementationOnce((_cmd, _args, _opts, cb) => {
       const err = new Error("Failed to connect to bus") as Error & { code?: number };
       err.code = 1;
       cb(err, "", "Failed to connect to bus");
     });
-    await expect(isSystemdServiceEnabled({ env: {} })).rejects.toThrow(
-      "systemctl is-enabled unavailable: Failed to connect to bus",
-    );
+    const result = await isSystemdServiceEnabled({ env: {} });
+    expect(result).toBe(false);
   });
 
   it("returns false when systemctl is-enabled exits with code 4 (not-found)", async () => {
@@ -101,6 +100,21 @@ describe("isSystemdServiceEnabled", () => {
       ) as Error & { code?: number };
       err.code = 4;
       cb(err, "not-found\n", "");
+    });
+    const result = await isSystemdServiceEnabled({ env: {} });
+    expect(result).toBe(false);
+  });
+
+  it("returns false when systemctl is-enabled exits with code 1 and empty stdout", async () => {
+    const { isSystemdServiceEnabled } = await import("./systemd.js");
+    execFileMock.mockImplementationOnce((_cmd, _args, _opts, cb) => {
+      // On fresh Ubuntu 24.04 EC2, systemctl --user is-enabled may exit with
+      // code 1 and produce no stdout state keyword at all.
+      const err = new Error(
+        "Command failed: systemctl --user is-enabled openclaw-gateway.service",
+      ) as Error & { code?: number };
+      err.code = 1;
+      cb(err, "", "");
     });
     const result = await isSystemdServiceEnabled({ env: {} });
     expect(result).toBe(false);
