@@ -99,6 +99,7 @@ function parseNumberValue(value: string): number | undefined {
 export function parseTtsDirectives(
   text: string,
   policy: ResolvedTtsModelOverrides,
+  openaiBaseUrl?: string,
 ): TtsDirectiveParseResult {
   if (!policy.enabled) {
     return { cleanedText: text, overrides: {}, warnings: [], hasDirective: false };
@@ -151,7 +152,7 @@ export function parseTtsDirectives(
             if (!policy.allowVoice) {
               break;
             }
-            if (isValidOpenAIVoice(rawValue)) {
+            if (isValidOpenAIVoice(rawValue, openaiBaseUrl)) {
               overrides.openai = { ...overrides.openai, voice: rawValue };
             } else {
               warnings.push(`invalid OpenAI voice "${rawValue}"`);
@@ -180,7 +181,7 @@ export function parseTtsDirectives(
             if (!policy.allowModelId) {
               break;
             }
-            if (isValidOpenAIModel(rawValue)) {
+            if (isValidOpenAIModel(rawValue, openaiBaseUrl)) {
               overrides.openai = { ...overrides.openai, model: rawValue };
             } else {
               overrides.elevenlabs = { ...overrides.elevenlabs, modelId: rawValue };

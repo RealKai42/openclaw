@@ -277,6 +277,29 @@ describe("tts", () => {
       expect(result.cleanedText).toBe(input);
       expect(result.overrides.provider).toBeUndefined();
     });
+
+    it("accepts custom voices and models when openaiBaseUrl is a non-default endpoint", () => {
+      const policy = resolveModelOverridePolicy({ enabled: true });
+      const input = "Hello [[tts:voice=kokoro-chinese model=kokoro-v1]] world";
+      const customBaseUrl = "http://localhost:8880/v1";
+
+      const result = parseTtsDirectives(input, policy, customBaseUrl);
+
+      expect(result.overrides.openai?.voice).toBe("kokoro-chinese");
+      expect(result.overrides.openai?.model).toBe("kokoro-v1");
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it("rejects unknown voices and models when openaiBaseUrl is the default OpenAI endpoint", () => {
+      const policy = resolveModelOverridePolicy({ enabled: true });
+      const input = "Hello [[tts:voice=kokoro-chinese model=kokoro-v1]] world";
+      const defaultBaseUrl = "https://api.openai.com/v1";
+
+      const result = parseTtsDirectives(input, policy, defaultBaseUrl);
+
+      expect(result.overrides.openai?.voice).toBeUndefined();
+      expect(result.warnings).toContain('invalid OpenAI voice "kokoro-chinese"');
+    });
   });
 
   describe("summarizeText", () => {
