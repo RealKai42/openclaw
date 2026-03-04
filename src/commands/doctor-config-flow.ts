@@ -1403,7 +1403,12 @@ function detectEmptyAllowlistPolicy(cfg: OpenClawConfig): string[] {
           groups != null &&
           Object.values(groups).some((g) => {
             const group = asObjectRecord(g);
-            return group != null && hasAllowFromEntries(group.allowFrom as Array<string | number>);
+            // Skip disabled groups — runtime short-circuits on enabled === false.
+            return (
+              group != null &&
+              group.enabled !== false &&
+              hasAllowFromEntries(group.allowFrom as Array<string | number>)
+            );
           });
 
         if (!hasPerGroupAllowFrom) {
