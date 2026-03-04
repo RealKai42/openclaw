@@ -443,10 +443,17 @@ export function recomputeNextRuns(state: CronServiceState): boolean {
 
 /**
  * Maintenance-only version of recomputeNextRuns that handles disabled jobs
- * and stuck markers, but does NOT recompute nextRunAtMs for enabled jobs
- * with existing values. Used during timer ticks when no due jobs were found
- * to prevent silently advancing past-due nextRunAtMs values without execution
- * (see #13992).
+ * and stuck markers, but avoids recomputing nextRunAtMs for enabled jobs
+ * that are currently running (to prevent silently advancing past-due values
+ * without execution; see #13992).
+ *
+ * When `recomputeExpired` is true, also recomputes expired (past-due)
+ * nextRunAtMs for jobs that are NOT currently running, so that jobs whose
+ * scheduled time passed (e.g. while the gateway was down) get rescheduled
+ * instead of being stuck forever (see #34432).  Callers in the post-execution
+ * path should leave `recomputeExpired` false to avoid advancing past-due
+ * nextRunAtMs values for jobs that became due between findDueJobs and the
+ * post-execution block (see #17852).
  */
 export function recomputeNextRunsForMaintenance(
   state: CronServiceState,
@@ -458,7 +465,7 @@ export function recomputeNextRunsForMaintenance(
     ({ job, nowMs: now }) => {
       let changed = false;
       if (!isFiniteTimestamp(job.state.nextRunAtMs)) {
-        // Missing or invalid nextRunAtMs is always repaired.
+        // Missing or invalid nextRunAtMs — always recompute.
         if (recomputeJobNextRunAtMs({ state, job, nowMs: now })) {
           changed = true;
         }
@@ -467,14 +474,14 @@ export function recomputeNextRunsForMaintenance(
         now >= job.state.nextRunAtMs &&
         typeof job.state.runningAtMs !== "number"
       ) {
-        // Only advance when the expired slot was already executed.
-        // If not, preserve the past-due value so the job can still run.
-        const lastRun = job.state.lastRunAtMs;
-        const alreadyExecutedSlot = isFiniteTimestamp(lastRun) && lastRun >= job.state.nextRunAtMs;
-        if (alreadyExecutedSlot) {
-          if (recomputeJobNextRunAtMs({ state, job, nowMs: now })) {
-            changed = true;
-          }
+        // Expired nextRunAtMs on a job that is NOT currently running.
+        // The job missed its window (e.g. gateway was offline) and findDueJobs
+        // did not pick it up in this tick.  Recompute so it gets a fresh future
+        // nextRunAtMs instead of staying stuck with a past timestamp (#34432).
+        // Jobs with runningAtMs set are intentionally skipped to avoid advancing
+        // a past-due value while the job is still executing (#13992).
+        if (recomputeJobNextRunAtMs({ state, job, nowMs: now })) {
+          changed = true;
         }
       }
       return changed;
