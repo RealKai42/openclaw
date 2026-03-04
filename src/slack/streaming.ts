@@ -15,7 +15,6 @@ import type { WebClient } from "@slack/web-api";
 import type { ChatStreamer } from "@slack/web-api/dist/chat-stream.js";
 import { logVerbose } from "../globals.js";
 
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -148,9 +147,7 @@ export async function stopSlackStream(params: StopSlackStreamParams): Promise<vo
     }`,
   );
 
-  await session.streamer.stop(
-    text ? { markdown_text: text } : undefined,
-  );
+  await session.streamer.stop(text ? { markdown_text: text } : undefined);
 
   logVerbose("slack-stream: stream stopped");
 }
