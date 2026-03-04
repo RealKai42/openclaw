@@ -653,7 +653,7 @@ describe("handleLineWebhookEvents", () => {
       mode: "active",
       webhookEventId: "evt-mention-2",
       deliveryContext: { isRedelivery: false },
-    } as MessageEvent;
+    } as unknown as MessageEvent;
 
     await handleLineWebhookEvents([event], {
       cfg: { channels: { line: { groupPolicy: "open" } } },
@@ -807,7 +807,7 @@ describe("handleLineWebhookEvents", () => {
       mode: "active",
       webhookEventId: "evt-mention-other",
       deliveryContext: { isRedelivery: false },
-    } as MessageEvent;
+    } as unknown as MessageEvent;
 
     await handleLineWebhookEvents([event], {
       cfg: { channels: { line: { groupPolicy: "open" } } },
