@@ -1,5 +1,6 @@
 import path from "node:path";
 import { resolveAgentWorkspaceDir } from "../agents/agent-scope.js";
+import { resolveDefaultAgentWorkspaceDir } from "../agents/workspace.js";
 import type { OpenClawConfig } from "../config/config.js";
 import { resolveStateDir } from "../config/paths.js";
 import { resolvePreferredOpenClawTmpDir } from "../infra/tmp-openclaw-dir.js";
@@ -32,10 +33,11 @@ function buildMediaLocalRoots(
   ];
   // Include profile-specific workspace when OPENCLAW_PROFILE is set,
   // so media from the active profile's workspace passes the allowlist.
-  // Derive from stateDir (not home dir) to stay consistent with other roots.
+  // Use resolveDefaultAgentWorkspaceDir() to match the actual workspace path,
+  // which may differ from stateDir when OPENCLAW_STATE_DIR is overridden.
   const profile = process.env.OPENCLAW_PROFILE?.trim();
   if (profile && profile.toLowerCase() !== "default") {
-    const profileWorkspace = path.join(resolvedStateDir, `workspace-${profile}`);
+    const profileWorkspace = path.resolve(resolveDefaultAgentWorkspaceDir());
     if (!roots.includes(profileWorkspace)) {
       roots.push(profileWorkspace);
     }
