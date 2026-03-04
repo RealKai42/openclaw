@@ -9,6 +9,7 @@ import type {
 } from "@line/bot-sdk";
 import { hasControlCommand } from "../auto-reply/command-detection.js";
 import { resolveControlCommandGate } from "../channels/command-gating.js";
+import { resolveMentionGatingWithBypass } from "../channels/mention-gating.js";
 import type { OpenClawConfig } from "../config/config.js";
 import {
   resolveAllowlistProviderRuntimeGroupPolicy,
@@ -399,6 +400,26 @@ async function shouldProcessLineEvent(
   return { allowed: true, commandAuthorized: commandGate.commandAuthorized };
 }
 
+/**
+ * Detect whether the bot was @mentioned in a LINE text message.
+ * LINE webhook payloads include `mention.mentionees` on text messages with
+ * `isSelf: true` for the bot and `type: "all"` for @All mentions.
+ * The `@line/bot-sdk` types don't expose these fields, so we use a type assertion.
+ */
+function isLineBotMentioned(message: MessageEvent["message"]): boolean {
+  if (message.type !== "text") {
+    return false;
+  }
+  const mentionees = (message as Record<string, unknown> & { mention?: { mentionees?: unknown[] } })
+    .mention?.mentionees;
+  if (!Array.isArray(mentionees)) {
+    return false;
+  }
+  return mentionees.some(
+    (m: { type?: string; isSelf?: boolean }) => m.isSelf === true || m.type === "all",
+  );
+}
+
 function resolveEventRawText(event: MessageEvent | PostbackEvent): string {
   if (event.type === "message") {
     const msg = event.message;
@@ -420,6 +441,29 @@ async function handleMessageEvent(event: MessageEvent, context: LineHandlerConte
   const decision = await shouldProcessLineEvent(event, context);
   if (!decision.allowed) {
     return;
+  }
+
+  // Mention gating: skip group messages that don't @mention the bot when required.
+  const { isGroup, groupId, roomId } = getLineSourceInfo(event.source);
+  if (isGroup) {
+    const groupConfig = resolveLineGroupConfig({ config: account.config, groupId, roomId });
+    if (groupConfig?.requireMention) {
+      const rawText = message.type === "text" ? message.text : "";
+      const wasMentioned = isLineBotMentioned(message);
+      const mentionGate = resolveMentionGatingWithBypass({
+        isGroup: true,
+        requireMention: true,
+        canDetectMention: true,
+        wasMentioned,
+        allowTextCommands: true,
+        hasControlCommand: hasControlCommand(rawText, cfg),
+        commandAuthorized: decision.commandAuthorized,
+      });
+      if (mentionGate.shouldSkip) {
+        logVerbose(`line: skipping group message (requireMention, not mentioned)`);
+        return;
+      }
+    }
   }
 
   // Download media if applicable
