@@ -106,10 +106,19 @@ async function assertLocalMediaAllowed(
       if (rel && !rel.startsWith("..") && !path.isAbsolute(rel)) {
         const firstSegment = rel.split(path.sep)[0] ?? "";
         if (firstSegment.startsWith("workspace-")) {
-          throw new LocalMediaAccessError(
-            "path-not-allowed",
-            `Local media path is not under an allowed directory: ${mediaPath}`,
-          );
+          // Allow workspace-<profile> directories that are already in the
+          // roots list (added by buildMediaLocalRoots for the active profile).
+          const target = path.join(stateDir, firstSegment);
+          const isAllowed = roots.some((root) => {
+            const resolvedRoot = path.resolve(root);
+            return resolvedRoot === target || target.startsWith(resolvedRoot + path.sep);
+          });
+          if (!isAllowed) {
+            throw new LocalMediaAccessError(
+              "path-not-allowed",
+              `Local media path is not under an allowed directory: ${mediaPath}`,
+            );
+          }
         }
       }
     }
