@@ -664,6 +664,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       sessionKey: string;
       runId?: string;
     };
+    const { canonicalKey: sessionKey } = loadSessionEntry(rawSessionKey);
 
     const ops = createChatAbortOps(context);
 
@@ -671,7 +672,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       const res = abortChatRunsForSessionKeyWithPartials({
         context,
         ops,
-        sessionKey: rawSessionKey,
+        sessionKey,
         abortOrigin: "rpc",
         stopReason: "rpc",
       });
@@ -684,7 +685,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       respond(true, { ok: true, aborted: false, runIds: [] });
       return;
     }
-    if (active.sessionKey !== rawSessionKey) {
+    if (active.sessionKey !== sessionKey) {
       respond(
         false,
         undefined,
@@ -696,13 +697,13 @@ export const chatHandlers: GatewayRequestHandlers = {
     const partialText = context.chatRunBuffers.get(runId);
     const res = abortChatRunById(ops, {
       runId,
-      sessionKey: rawSessionKey,
+      sessionKey,
       stopReason: "rpc",
     });
     if (res.aborted && partialText && partialText.trim()) {
       persistAbortedPartials({
         context,
-        sessionKey: rawSessionKey,
+        sessionKey,
         snapshots: [
           {
             runId,
@@ -810,7 +811,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       const res = abortChatRunsForSessionKeyWithPartials({
         context,
         ops: createChatAbortOps(context),
-        sessionKey: rawSessionKey,
+        sessionKey,
         abortOrigin: "stop-command",
         stopReason: "stop",
       });
@@ -840,7 +841,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       context.chatAbortControllers.set(clientRunId, {
         controller: abortController,
         sessionId: entry?.sessionId ?? clientRunId,
-        sessionKey: rawSessionKey,
+        sessionKey,
         startedAtMs: now,
         expiresAtMs: resolveChatRunExpiresAtMs({ now, timeoutMs }),
       });
@@ -977,7 +978,7 @@ export const chatHandlers: GatewayRequestHandlers = {
               // late-joining clients (e.g. page refresh mid-response) receive
               // in-progress tool events without leaking cross-session data.
               for (const [activeRunId, active] of context.chatAbortControllers) {
-                if (activeRunId !== runId && active.sessionKey === p.sessionKey) {
+                if (activeRunId !== runId && active.sessionKey === sessionKey) {
                   context.registerToolEventRecipient(activeRunId, connId);
                 }
               }
