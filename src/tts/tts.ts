@@ -28,6 +28,7 @@ import { stripMarkdown } from "../line/markdown-to-line.js";
 import { isVoiceCompatibleAudio } from "../media/audio.js";
 import { CONFIG_DIR, resolveUserPath } from "../utils.js";
 import {
+  DEFAULT_OPENAI_BASE_URL,
   edgeTTS,
   elevenLabsTTS,
   inferEdgeExtension,
@@ -51,7 +52,6 @@ const DEFAULT_MAX_TEXT_LENGTH = 4096;
 const DEFAULT_ELEVENLABS_BASE_URL = "https://api.elevenlabs.io";
 const DEFAULT_ELEVENLABS_VOICE_ID = "pMsXgVXv3BLzUgSXRplE";
 const DEFAULT_ELEVENLABS_MODEL_ID = "eleven_multilingual_v2";
-const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini-tts";
 const DEFAULT_OPENAI_VOICE = "alloy";
 const DEFAULT_EDGE_VOICE = "en-US-MichelleNeural";

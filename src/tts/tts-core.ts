@@ -18,6 +18,7 @@ import type {
 } from "./tts.js";
 
 const DEFAULT_ELEVENLABS_BASE_URL = "https://api.elevenlabs.io";
+export const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const TEMP_FILE_CLEANUP_DELAY_MS = 5 * 60 * 1000; // 5 minutes
 
 export function isValidVoiceId(voiceId: string): boolean {
@@ -336,14 +337,14 @@ export const OPENAI_TTS_MODELS = ["gpt-4o-mini-tts", "tts-1", "tts-1-hd"] as con
  * Note: Read at runtime (not module load) to support config.env loading.
  */
 function getOpenAITtsBaseUrl(): string {
-  return (process.env.OPENAI_TTS_BASE_URL?.trim() || "https://api.openai.com/v1").replace(
+  return (process.env.OPENAI_TTS_BASE_URL?.trim() || DEFAULT_OPENAI_BASE_URL).replace(
     /\/+$/,
     "",
   );
 }
 
 function isCustomOpenAIEndpoint(): boolean {
-  return getOpenAITtsBaseUrl() !== "https://api.openai.com/v1";
+  return getOpenAITtsBaseUrl() !== DEFAULT_OPENAI_BASE_URL;
 }
 export const OPENAI_TTS_VOICES = [
   "alloy",
@@ -366,7 +367,7 @@ type OpenAiTtsVoice = (typeof OPENAI_TTS_VOICES)[number];
 
 export function isValidOpenAIModel(model: string, baseUrl?: string): boolean {
   // Allow any model when using custom endpoint (e.g., Kokoro, LocalAI)
-  if (baseUrl ? baseUrl !== "https://api.openai.com/v1" : isCustomOpenAIEndpoint()) {
+  if (baseUrl ? baseUrl !== DEFAULT_OPENAI_BASE_URL : isCustomOpenAIEndpoint()) {
     return true;
   }
   return OPENAI_TTS_MODELS.includes(model as (typeof OPENAI_TTS_MODELS)[number]);
@@ -374,7 +375,7 @@ export function isValidOpenAIModel(model: string, baseUrl?: string): boolean {
 
 export function isValidOpenAIVoice(voice: string, baseUrl?: string): voice is OpenAiTtsVoice {
   // Allow any voice when using custom endpoint (e.g., Kokoro Chinese voices)
-  if (baseUrl ? baseUrl !== "https://api.openai.com/v1" : isCustomOpenAIEndpoint()) {
+  if (baseUrl ? baseUrl !== DEFAULT_OPENAI_BASE_URL : isCustomOpenAIEndpoint()) {
     return true;
   }
   return OPENAI_TTS_VOICES.includes(voice as OpenAiTtsVoice);
