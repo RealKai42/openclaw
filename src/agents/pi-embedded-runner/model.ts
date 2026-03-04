@@ -7,7 +7,7 @@ import { DEFAULT_CONTEXT_TOKENS } from "../defaults.js";
 import { buildModelAliasLines } from "../model-alias-lines.js";
 import { normalizeModelCompat } from "../model-compat.js";
 import { resolveForwardCompatModel } from "../model-forward-compat.js";
-import { findNormalizedProviderValue, normalizeProviderId } from "../model-selection.js";
+import { normalizeProviderId } from "../model-selection.js";
 import { discoverAuthStorage, discoverModels } from "../pi-model-discovery.js";
 
 type InlineModelEntry = ModelDefinitionConfig & {
@@ -28,7 +28,18 @@ function resolveConfiguredProviderConfig(
   cfg: OpenClawConfig | undefined,
   provider: string,
 ): InlineProviderConfig | undefined {
-  return findNormalizedProviderValue(cfg?.models?.providers, provider);
+  const providers = cfg?.models?.providers;
+  if (!providers) {
+    return undefined;
+  }
+  // Preserve explicit user intent when both alias keys (for example z.ai + zai) are present.
+  if (Object.hasOwn(providers, provider)) {
+    return providers[provider];
+  }
+  const normalizedProvider = normalizeProviderId(provider);
+  return Object.entries(providers).find(
+    ([key]) => normalizeProviderId(key) === normalizedProvider,
+  )?.[1];
 }
 
 function applyConfiguredProviderOverrides(params: {
@@ -41,10 +52,16 @@ function applyConfiguredProviderOverrides(params: {
     return discoveredModel;
   }
   const configuredModel = providerConfig.models?.find((candidate) => candidate.id === modelId);
-  if (!configuredModel && !providerConfig.baseUrl && !providerConfig.api && !providerConfig.headers) {
+  if (
+    !configuredModel &&
+    !providerConfig.baseUrl &&
+    !providerConfig.api &&
+    !providerConfig.headers
+  ) {
     return discoveredModel;
   }
-  const discoveredHeaders = (discoveredModel as Model<Api> & { headers?: Record<string, string> }).headers;
+  const discoveredHeaders = (discoveredModel as Model<Api> & { headers?: Record<string, string> })
+    .headers;
   const mergedHeaders =
     discoveredHeaders || providerConfig.headers || configuredModel?.headers
       ? { ...discoveredHeaders, ...providerConfig.headers, ...configuredModel?.headers }

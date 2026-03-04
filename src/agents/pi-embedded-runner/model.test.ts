@@ -330,6 +330,46 @@ describe("resolveModel", () => {
     });
   });
 
+  it("prefers exact provider key over normalized alias when both are configured", () => {
+    mockDiscoveredModel({
+      provider: "zai",
+      modelId: "glm-4.7",
+      templateModel: buildForwardCompatTemplate({
+        id: "glm-4.7",
+        name: "GLM-4.7",
+        provider: "zai",
+        api: "openai-completions",
+        baseUrl: "https://registry-zai.example.com/v1",
+        input: ["text"],
+      }),
+    });
+
+    const cfg = {
+      models: {
+        providers: {
+          "z.ai": {
+            baseUrl: "https://alias-z-ai.example.com/v1",
+            headers: { "X-Provider-Key": "alias" },
+            models: [],
+          },
+          zai: {
+            baseUrl: "https://canonical-zai.example.com/v1",
+            headers: { "X-Provider-Key": "exact" },
+            models: [],
+          },
+        },
+      },
+    } as OpenClawConfig;
+
+    const result = resolveModel("zai", "glm-4.7", "/tmp/agent", cfg);
+
+    expect(result.error).toBeUndefined();
+    expect(result.model?.baseUrl).toBe("https://canonical-zai.example.com/v1");
+    expect((result.model as unknown as { headers?: Record<string, string> }).headers).toEqual({
+      "X-Provider-Key": "exact",
+    });
+  });
+
   it("builds an openai-codex fallback for gpt-5.3-codex", () => {
     mockOpenAICodexTemplateModel();
 
