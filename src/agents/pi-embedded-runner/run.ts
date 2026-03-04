@@ -213,8 +213,15 @@ function buildErrorAgentMeta(params: {
   usageAccumulator: UsageAccumulator;
   lastRunPromptUsage: ReturnType<typeof normalizeUsage> | undefined;
   lastAssistant?: { usage?: unknown } | null;
+  /** API-reported total from the most recent call, mirroring the success path correction. */
+  lastTurnTotal?: number;
 }): EmbeddedPiAgentMeta {
   const usage = toNormalizedUsage(params.usageAccumulator);
+  // Apply the same lastTurnTotal correction the success path uses so
+  // usage.total reflects the API-reported context size, not accumulated totals.
+  if (usage && params.lastTurnTotal && params.lastTurnTotal > 0) {
+    usage.total = params.lastTurnTotal;
+  }
   const lastCallUsage = params.lastAssistant
     ? normalizeUsage(params.lastAssistant.usage as UsageLike)
     : undefined;
@@ -1037,6 +1044,7 @@ export async function runEmbeddedPiAgent(
                   usageAccumulator,
                   lastRunPromptUsage,
                   lastAssistant,
+                  lastTurnTotal,
                 }),
                 systemPromptReport: attempt.systemPromptReport,
                 error: { kind, message: errorText },
@@ -1070,6 +1078,7 @@ export async function runEmbeddedPiAgent(
                     usageAccumulator,
                     lastRunPromptUsage,
                     lastAssistant,
+                    lastTurnTotal,
                   }),
                   systemPromptReport: attempt.systemPromptReport,
                   error: { kind: "role_ordering", message: errorText },
@@ -1101,6 +1110,7 @@ export async function runEmbeddedPiAgent(
                     usageAccumulator,
                     lastRunPromptUsage,
                     lastAssistant,
+                    lastTurnTotal,
                   }),
                   systemPromptReport: attempt.systemPromptReport,
                   error: { kind: "image_size", message: errorText },
