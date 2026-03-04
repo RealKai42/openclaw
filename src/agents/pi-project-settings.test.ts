@@ -1,3 +1,4 @@
+import { SettingsManager } from "@mariozechner/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 import {
   buildEmbeddedPiSettingsSnapshot,
@@ -93,9 +94,13 @@ describe("createPreparedEmbeddedPiSettingsManager", () => {
       agentDir: "/tmp/agent",
     });
 
+    // Derive expected values from the upstream library so the test stays
+    // robust across library upgrades instead of hardcoding defaults.
+    const baseManager = SettingsManager.create("/tmp", "/tmp/agent-base");
+    const baseRetry = baseManager.getRetrySettings();
     const retrySettings = settingsManager.getRetrySettings();
-    expect(retrySettings.maxRetries).toBe(3);
-    expect(retrySettings.baseDelayMs).toBe(2000);
-    expect(retrySettings.maxDelayMs).toBe(60000);
+    const { enabled: _, ...baseWithoutEnabled } = baseRetry;
+    const { enabled: __, ...retryWithoutEnabled } = retrySettings;
+    expect(retryWithoutEnabled).toEqual(baseWithoutEnabled);
   });
 });
