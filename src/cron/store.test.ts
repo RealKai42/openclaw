@@ -81,6 +81,28 @@ describe("cron store", () => {
   });
 });
 
+describe("saveCronStore file permissions (#35881)", () => {
+  const dummyStore: CronStoreFile = { version: 1, jobs: [] };
+
+  it("creates jobs.json with 0o600 permissions so other OS users cannot read cron schedules", async () => {
+    const { storePath } = await makeStorePath();
+    await saveCronStore(storePath, dummyStore);
+    const stat = await fs.stat(storePath);
+    // mask to lower 9 permission bits
+    expect(stat.mode & 0o777).toBe(0o600);
+  });
+
+  it("creates jobs.json.bak with 0o600 permissions on second write", async () => {
+    const { storePath } = await makeStorePath();
+    const first = makeStore("job-bak-perm", true);
+    const second = makeStore("job-bak-perm-2", false);
+    await saveCronStore(storePath, first);
+    await saveCronStore(storePath, second);
+    const stat = await fs.stat(`${storePath}.bak`);
+    expect(stat.mode & 0o777).toBe(0o600);
+  });
+});
+
 describe("saveCronStore", () => {
   const dummyStore: CronStoreFile = { version: 1, jobs: [] };
 

@@ -83,10 +83,14 @@ export async function saveCronStore(
     return;
   }
   const tmp = `${storePath}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`;
-  await fs.promises.writeFile(tmp, json, "utf-8");
+  // mode 0o600: cron store contains job schedules/targets; restrict to owner only (#35881)
+  await fs.promises.writeFile(tmp, json, { encoding: "utf-8", mode: 0o600 });
   if (previous !== null && !opts?.skipBackup) {
     try {
-      await fs.promises.copyFile(storePath, `${storePath}.bak`);
+      const bakPath = `${storePath}.bak`;
+      await fs.promises.copyFile(storePath, bakPath);
+      // copyFile creates the file with umask-derived permissions; restrict to owner (#35881)
+      await fs.promises.chmod(bakPath, 0o600).catch(() => {});
     } catch {
       // best-effort
     }

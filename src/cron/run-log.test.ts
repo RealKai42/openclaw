@@ -271,4 +271,18 @@ describe("cron run log", () => {
       await writePromise.catch(() => undefined);
     });
   });
+
+  it("creates run-log JSONL file with 0o600 permissions (#35881)", async () => {
+    await withRunLogDir("openclaw-cron-log-perm-", async (dir) => {
+      const logPath = path.join(dir, "runs", "job-perm.jsonl");
+      await appendCronRunLog(logPath, {
+        ts: 1,
+        jobId: "job-perm",
+        action: "finished",
+        status: "ok",
+      });
+      const stat = await fs.stat(logPath);
+      expect(stat.mode & 0o777).toBe(0o600);
+    });
+  });
 });
