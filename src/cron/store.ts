@@ -83,7 +83,12 @@ export async function saveCronStore(
     return;
   }
   const tmp = `${storePath}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`;
-  await fs.promises.writeFile(tmp, json, { encoding: "utf-8", mode: 0o600 });
+  // On Windows, setting mode 0o600 on the tmp file can mark it read-only,
+  // causing the subsequent rename to fail with ENOENT. Skip mode on Windows;
+  // apply chmod post-rename on other platforms instead.
+  const writeOpts: Parameters<typeof fs.promises.writeFile>[2] =
+    process.platform === "win32" ? { encoding: "utf-8" } : { encoding: "utf-8", mode: 0o600 };
+  await fs.promises.writeFile(tmp, json, writeOpts);
   if (previous !== null && !opts?.skipBackup) {
     try {
       const bakPath = `${storePath}.bak`;
@@ -96,6 +101,11 @@ export async function saveCronStore(
     }
   }
   await renameWithRetry(tmp, storePath);
+  if (process.platform !== "win32") {
+    await fs.promises.chmod(storePath, 0o600).catch(() => {
+      // best-effort: chmod failure is non-fatal
+    });
+  }
   serializedStoreCache.set(storePath, json);
 }
 
