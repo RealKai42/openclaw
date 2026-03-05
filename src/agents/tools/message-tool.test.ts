@@ -111,6 +111,29 @@ describe("message tool agent routing", () => {
     expect(call?.agentId).toBe("alpha");
     expect(call?.sessionKey).toBe("agent:alpha:main");
   });
+
+  it("falls back to default agentId when no session key is present (cron/hook sessions)", async () => {
+    // Without a session key the tool must still resolve the default agent ID so
+    // agent-scoped media roots are applied for cron and hook invocations.
+    mockSendResult();
+
+    const tool = createMessageTool({
+      // no agentSessionKey
+      config: {} as never,
+    });
+
+    await tool.execute("1", {
+      action: "send",
+      target: "telegram:123",
+      message: "hi",
+    });
+
+    const call = mocks.runMessageAction.mock.calls[0]?.[0];
+    // agentId must be a non-empty string (the default agent ID, not undefined)
+    expect(typeof call?.agentId).toBe("string");
+    expect(call?.agentId).toBeTruthy();
+    expect(call?.sessionKey).toBeUndefined();
+  });
 });
 
 describe("message tool path passthrough", () => {

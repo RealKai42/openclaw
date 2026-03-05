@@ -729,6 +729,14 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
             }
           : undefined;
 
+      // Always resolve the agent ID so agent-scoped policies (e.g. media local
+      // roots) apply even for cron/hook sessions that have no explicit session key.
+      // resolveSessionAgentId falls back to the default agent ID when sessionKey is absent.
+      const resolvedAgentId = resolveSessionAgentId({
+        sessionKey: options?.agentSessionKey,
+        config: cfg,
+      });
+
       const result = await runMessageAction({
         cfg,
         action,
@@ -738,9 +746,7 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
         gateway,
         toolContext,
         sessionKey: options?.agentSessionKey,
-        agentId: options?.agentSessionKey
-          ? resolveSessionAgentId({ sessionKey: options.agentSessionKey, config: cfg })
-          : undefined,
+        agentId: resolvedAgentId,
         sandboxRoot: options?.sandboxRoot,
         abortSignal: signal,
       });
