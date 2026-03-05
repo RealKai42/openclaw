@@ -172,7 +172,11 @@ describe("handleLineWebhookEvents", () => {
         channelAccessToken: "token",
         channelSecret: "secret",
         tokenSource: "config",
-        config: { groupPolicy: "allowlist", groupAllowFrom: ["user-3"], groups: { "*": { requireMention: false } } },
+        config: {
+          groupPolicy: "allowlist",
+          groupAllowFrom: ["user-3"],
+          groups: { "*": { requireMention: false } },
+        },
       },
       runtime: createRuntime(),
       mediaMaxBytes: 1,
@@ -524,7 +528,11 @@ describe("handleLineWebhookEvents", () => {
         channelAccessToken: "token",
         channelSecret: "secret",
         tokenSource: "config",
-        config: { groupPolicy: "allowlist", groupAllowFrom: ["user-dup"], groups: { "*": { requireMention: false } } },
+        config: {
+          groupPolicy: "allowlist",
+          groupAllowFrom: ["user-dup"],
+          groups: { "*": { requireMention: false } },
+        },
       },
       runtime: createRuntime(),
       mediaMaxBytes: 1,
@@ -633,7 +641,10 @@ describe("handleLineWebhookEvents", () => {
 
   it("records unmentioned group messages as pending history", async () => {
     const processMessage = vi.fn();
-    const groupHistories = new Map<string, import("../auto-reply/reply/history.js").HistoryEntry[]>();
+    const groupHistories = new Map<
+      string,
+      import("../auto-reply/reply/history.js").HistoryEntry[]
+    >();
     const event = {
       type: "message",
       message: { id: "m-hist-1", type: "text", text: "hello history" },
