@@ -350,14 +350,15 @@ export const registerTelegramHandlers = ({
       for (const { ctx } of entry.messages) {
         let media;
         try {
-          // Retry once on recoverable errors (e.g. intermittent IPv6/IPv4 races on Node 25).
+          // Retry once on transient fetch errors (e.g. intermittent IPv6/IPv4 races on Node 25).
+          // Size-limit errors are deterministic and should not be retried.
           media = await retryAsync(
             () => resolveMedia(ctx, mediaMaxBytes, opts.token, opts.proxyFetch),
             {
               attempts: 2,
               minDelayMs: 500,
               maxDelayMs: 500,
-              shouldRetry: (err) => isRecoverableMediaGroupError(err),
+              shouldRetry: (err) => err instanceof MediaFetchError,
               onRetry: ({ err }) =>
                 runtime.log?.(
                   warn(`media group: retrying photo fetch after error: ${String(err)}`),
