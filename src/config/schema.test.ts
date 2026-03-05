@@ -162,6 +162,41 @@ describe("config schema", () => {
     expect(second).toBe(first);
   });
 
+  it("does not cache-collide when same plugin ID has different schemas", () => {
+    const schemaA = buildConfigSchema({
+      plugins: [
+        {
+          id: "voice-call",
+          configSchema: { type: "object", properties: { a: { type: "string" } } },
+        },
+      ],
+    });
+    const schemaB = buildConfigSchema({
+      plugins: [
+        {
+          id: "voice-call",
+          configSchema: { type: "object", properties: { b: { type: "number" } } },
+        },
+      ],
+    });
+    expect(schemaB).not.toBe(schemaA);
+  });
+
+  it("handles many channels without RangeError", () => {
+    // Simulate 20 channels each with a schema containing 50 properties.
+    const channels = Array.from({ length: 20 }, (_, i) => ({
+      id: `channel-${i}`,
+      label: `Channel ${i}`,
+      configSchema: {
+        type: "object" as const,
+        properties: Object.fromEntries(
+          Array.from({ length: 50 }, (__, j) => [`field${j}`, { type: "string" }]),
+        ),
+      },
+    }));
+    expect(() => buildConfigSchema({ channels })).not.toThrow();
+  });
+
   it("derives security/auth tags for credential paths", () => {
     const tags = deriveTagsForPath("gateway.auth.token");
     expect(tags).toContain("security");

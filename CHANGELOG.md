@@ -20,6 +20,7 @@ Docs: https://docs.openclaw.ai
 
 ### Fixes
 
+- Config/schema cache key: replace full `JSON.stringify` of all plugin/channel schemas with per-item djb2 hashes to prevent `RangeError: Invalid string length` when many channels or plugins carry large schemas. (#36508)
 - Telegram/health monitoring: thread `setStatus` callback through `monitorTelegramProvider` → `createTelegramBot`/`startTelegramWebhook` and call it on every inbound update so `lastEventAt` and `lastInboundAt` timestamps are correctly updated, fixing the always-`null` health snapshot for Telegram channels. (#32850)
 - iMessage/cron completion announces: strip leaked inline reply tags (for example `[[reply_to:6100]]`) from user-visible completion text so announcement deliveries do not expose threading metadata. (#24600) Thanks @vincentkoc.
 - Agents/context pruning: guard assistant thinking/text char estimation against malformed blocks (missing `thinking`/`text` strings or null entries) so pruning no longer crashes with malformed provider content. (openclaw#35146) thanks @Sid-Qin.

@@ -300,29 +300,31 @@ let cachedBase: ConfigSchemaResponse | null = null;
 const mergedSchemaCache = new Map<string, ConfigSchemaResponse>();
 const MERGED_SCHEMA_CACHE_MAX = 64;
 
+// Hash a single schema/hints value using djb2 to avoid building a huge concatenated
+// string when there are many channels/plugins with large schemas, which can cause
+// `RangeError: Invalid string length` (#36508).
+function hashSchemaItem(value: unknown): number {
+  const str = value == null ? "" : JSON.stringify(value);
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+  }
+  return hash >>> 0;
+}
+
 function buildMergedSchemaCacheKey(params: {
   plugins: PluginUiMetadata[];
   channels: ChannelUiMetadata[];
 }): string {
-  const plugins = params.plugins
-    .map((plugin) => ({
-      id: plugin.id,
-      name: plugin.name,
-      description: plugin.description,
-      configSchema: plugin.configSchema ?? null,
-      configUiHints: plugin.configUiHints ?? null,
-    }))
-    .toSorted((a, b) => a.id.localeCompare(b.id));
-  const channels = params.channels
-    .map((channel) => ({
-      id: channel.id,
-      label: channel.label,
-      description: channel.description,
-      configSchema: channel.configSchema ?? null,
-      configUiHints: channel.configUiHints ?? null,
-    }))
-    .toSorted((a, b) => a.id.localeCompare(b.id));
-  return JSON.stringify({ plugins, channels });
+  const pluginKeys = params.plugins
+    .map((p) => `${p.id}:${p.name ?? ""}:${hashSchemaItem([p.configSchema, p.configUiHints])}`)
+    .sort()
+    .join(",");
+  const channelKeys = params.channels
+    .map((c) => `${c.id}:${c.label ?? ""}:${hashSchemaItem([c.configSchema, c.configUiHints])}`)
+    .sort()
+    .join(",");
+  return `plugins:${pluginKeys}|channels:${channelKeys}`;
 }
 
 function setMergedSchemaCache(key: string, value: ConfigSchemaResponse): void {
