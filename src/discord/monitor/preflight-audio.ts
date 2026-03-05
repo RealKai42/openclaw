@@ -75,10 +75,13 @@ export async function resolveDiscordPreflightAudioMentionContext(params: {
         // Race against abort so a slow transcription does not hold up the
         // channel queue when the listener has already timed out (issue #36017).
         if (params.abortSignal && !params.abortSignal.aborted) {
+          let abortHandler!: () => void;
           const abortPromise = new Promise<undefined>((resolve) => {
-            params.abortSignal!.addEventListener("abort", () => resolve(undefined), { once: true });
+            abortHandler = () => resolve(undefined);
+            params.abortSignal!.addEventListener("abort", abortHandler, { once: true });
           });
           transcript = await Promise.race([transcriptionPromise, abortPromise]);
+          params.abortSignal.removeEventListener("abort", abortHandler);
         } else {
           transcript = await transcriptionPromise;
         }
