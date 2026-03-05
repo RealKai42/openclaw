@@ -64,4 +64,34 @@ describe("handleSlackMessageAction", () => {
       expect.any(Object),
     );
   });
+
+  it("propagates mediaLocalRoots from ctx to sendMessage so agent workspace files are allowed (#36477)", async () => {
+    const invoke = createInvokeSpy();
+    const mediaLocalRoots = ["/home/admin/clawd-agents/potty"] as const;
+
+    await handleSlackMessageAction({
+      providerId: "slack",
+      ctx: {
+        action: "send",
+        cfg: {},
+        params: {
+          to: "channel:C1",
+          message: "hi",
+          media: "/home/admin/clawd-agents/potty/output/report.pdf",
+        },
+        mediaLocalRoots,
+      } as never,
+      invoke: invoke as never,
+    });
+
+    expect(invoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "sendMessage",
+        to: "channel:C1",
+        mediaLocalRoots,
+      }),
+      expect.any(Object),
+      undefined,
+    );
+  });
 });

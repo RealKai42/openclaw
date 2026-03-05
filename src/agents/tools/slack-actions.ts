@@ -194,6 +194,11 @@ export async function handleSlackAction(
           allowEmpty: true,
         });
         const mediaUrl = readStringParam(params, "mediaUrl");
+        // mediaLocalRoots is forwarded from the agent's outbound context so local
+        // file paths under the agent workspace pass assertLocalMediaAllowed. (#36477)
+        const mediaLocalRoots = Array.isArray(params.mediaLocalRoots)
+          ? (params.mediaLocalRoots as readonly string[])
+          : undefined;
         const blocks = readSlackBlocksParam(params);
         if (!content && !mediaUrl && !blocks) {
           throw new Error("Slack sendMessage requires content, blocks, or mediaUrl.");
@@ -209,6 +214,7 @@ export async function handleSlackAction(
         const result = await sendSlackMessage(to, content ?? "", {
           ...writeOpts,
           mediaUrl: mediaUrl ?? undefined,
+          mediaLocalRoots,
           threadTs: threadTs ?? undefined,
           blocks,
         });

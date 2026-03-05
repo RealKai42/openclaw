@@ -52,6 +52,9 @@ export async function handleSlackMessageAction(params: {
         to,
         content: content ?? "",
         mediaUrl: mediaUrl ?? undefined,
+        // Propagate agent-scoped media roots so local file uploads are
+        // permitted from the agent workspace directory. (#36477)
+        mediaLocalRoots: ctx.mediaLocalRoots,
         blocks,
         accountId,
         threadTs: threadId ?? replyTo ?? undefined,
