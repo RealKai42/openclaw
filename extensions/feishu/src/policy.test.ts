@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isFeishuGroupAllowed,
+  normalizeFeishuGroupPolicy,
   resolveFeishuAllowlistMatch,
   resolveFeishuGroupConfig,
 } from "./policy.js";
@@ -109,6 +110,23 @@ describe("feishu policy", () => {
           senderId: "oc_group_123",
         }),
       ).toBe(true);
+    });
+  });
+
+  describe("normalizeFeishuGroupPolicy (#36312)", () => {
+    it("maps 'allowall' to 'open' so users who use the intuitive alias get the expected behavior", () => {
+      expect(normalizeFeishuGroupPolicy("allowall")).toBe("open");
+    });
+
+    it("passes through valid canonical values unchanged", () => {
+      expect(normalizeFeishuGroupPolicy("open")).toBe("open");
+      expect(normalizeFeishuGroupPolicy("allowlist")).toBe("allowlist");
+      expect(normalizeFeishuGroupPolicy("disabled")).toBe("disabled");
+    });
+
+    it("returns undefined for unknown values (caller falls back to default policy)", () => {
+      expect(normalizeFeishuGroupPolicy("unknown-value")).toBeUndefined();
+      expect(normalizeFeishuGroupPolicy(undefined)).toBeUndefined();
     });
   });
 });

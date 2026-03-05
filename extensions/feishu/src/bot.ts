@@ -24,6 +24,7 @@ import {
   resolveFeishuReplyPolicy,
   resolveFeishuAllowlistMatch,
   isFeishuGroupAllowed,
+  normalizeFeishuGroupPolicy,
 } from "./policy.js";
 import { parsePostContent } from "./post.js";
 import { createFeishuReplyDispatcher } from "./reply-dispatcher.js";
@@ -988,7 +989,8 @@ export async function handleFeishuMessage(params: {
     const defaultGroupPolicy = resolveDefaultGroupPolicy(cfg);
     const { groupPolicy, providerMissingFallbackApplied } = resolveOpenProviderRuntimeGroupPolicy({
       providerConfigPresent: cfg.channels?.feishu !== undefined,
-      groupPolicy: feishuCfg?.groupPolicy,
+      // normalizeFeishuGroupPolicy accepts "allowall" as an alias for "open" (#36312)
+      groupPolicy: normalizeFeishuGroupPolicy(feishuCfg?.groupPolicy as string | undefined),
       defaultGroupPolicy,
     });
     warnMissingProviderGroupPolicyFallbackOnce({

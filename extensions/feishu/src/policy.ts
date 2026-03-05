@@ -91,6 +91,19 @@ export function resolveFeishuGroupToolPolicy(
   return groupConfig?.tools;
 }
 
+/**
+ * Normalize a raw groupPolicy string to a recognized GroupPolicy value.
+ * "allowall" is accepted as an alias for "open" — users sometimes set this
+ * intuitively but the canonical documented value is "open". (#36312)
+ */
+export function normalizeFeishuGroupPolicy(
+  raw: string | undefined,
+): "open" | "allowlist" | "disabled" | undefined {
+  if (raw === "allowall") return "open";
+  if (raw === "open" || raw === "allowlist" || raw === "disabled") return raw;
+  return undefined;
+}
+
 export function isFeishuGroupAllowed(params: {
   groupPolicy: "open" | "allowlist" | "disabled";
   allowFrom: Array<string | number>;
