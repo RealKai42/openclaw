@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { lookupContextTokens } from "../../agents/context.js";
+import { resolveContextTokensForModel } from "../../agents/context.js";
 import { DEFAULT_CONTEXT_TOKENS } from "../../agents/defaults.js";
 import { resolveModelAuthMode } from "../../agents/model-auth.js";
 import { isCliProvider } from "../../agents/model-selection.js";
@@ -449,11 +449,23 @@ export async function runReplyAgent(params: {
     const cliSessionId = isCliProvider(providerUsed, cfg)
       ? runResult.meta?.agentMeta?.sessionId?.trim()
       : undefined;
+    // Only inherit the session's contextTokens when the active model matches the
+    // current run's model — after a model switch the stale value from the prior
+    // model must not carry over. Fall back to DEFAULT_CONTEXT_TOKENS instead so
+    // token accounting resets cleanly. (#35372)
+    const sameModelAsPrior =
+      activeSessionEntry?.model != null && activeSessionEntry.model === modelUsed;
+    const sessionContextTokensFallback = sameModelAsPrior
+      ? activeSessionEntry?.contextTokens
+      : undefined;
     const contextTokensUsed =
-      agentCfgContextTokens ??
-      lookupContextTokens(modelUsed) ??
-      activeSessionEntry?.contextTokens ??
-      DEFAULT_CONTEXT_TOKENS;
+      resolveContextTokensForModel({
+        cfg,
+        provider: providerUsed,
+        model: modelUsed,
+        contextTokensOverride: agentCfgContextTokens,
+        fallbackContextTokens: sessionContextTokensFallback ?? DEFAULT_CONTEXT_TOKENS,
+      }) ?? DEFAULT_CONTEXT_TOKENS;
 
     await persistRunSessionUsage({
       storePath,
