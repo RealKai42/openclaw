@@ -454,12 +454,21 @@ export function recomputeNextRuns(state: CronServiceState): boolean {
  * path should leave `recomputeExpired` false to avoid advancing past-due
  * nextRunAtMs values for jobs that became due between findDueJobs and the
  * post-execution block (see #17852).
+ *
+ * When `recomputeExpiredExecutedOnly` is true (implies `recomputeExpired`),
+ * only advances past-due slots where the job's `lastRunAtMs` is at or after
+ * `nextRunAtMs` — i.e. the slot was already executed.  Slots that are pending
+ * execution (`lastRunAtMs` is earlier than `nextRunAtMs`) are left intact so
+ * the timer tick's `findDueJobs` can pick them up (#34432, #13992).
+ * Use this in the `run` (manual force) post-execution path to avoid silently
+ * skipping unrelated due jobs that haven't run yet.
  */
 export function recomputeNextRunsForMaintenance(
   state: CronServiceState,
-  opts?: { recomputeExpired?: boolean; nowMs?: number },
+  opts?: { recomputeExpired?: boolean; recomputeExpiredExecutedOnly?: boolean; nowMs?: number },
 ): boolean {
-  const recomputeExpired = opts?.recomputeExpired ?? false;
+  const recomputeExpiredExecutedOnly = opts?.recomputeExpiredExecutedOnly ?? false;
+  const recomputeExpired = opts?.recomputeExpired ?? recomputeExpiredExecutedOnly;
   return walkSchedulableJobs(
     state,
     ({ job, nowMs: now }) => {
@@ -480,8 +489,29 @@ export function recomputeNextRunsForMaintenance(
         // nextRunAtMs instead of staying stuck with a past timestamp (#34432).
         // Jobs with runningAtMs set are intentionally skipped to avoid advancing
         // a past-due value while the job is still executing (#13992).
-        if (recomputeJobNextRunAtMs({ state, job, nowMs: now })) {
-          changed = true;
+        //
+        // Guard: only advance when one of these is true —
+        //   1. recomputeExpiredExecutedOnly is false (caller wants full expired
+        //      sweep): advance if the slot has no run history at all (gateway
+        //      missed it entirely) or if it was already executed.
+        //   2. recomputeExpiredExecutedOnly is true (post-manual-run): only
+        //      advance when lastRunAtMs >= nextRunAtMs, i.e. the slot ran.
+        //      Leave pending slots (lastRunAtMs < nextRunAtMs or absent) intact
+        //      so the timer can pick them up via findDueJobs.
+        //
+        // The distinction prevents manual cron.run from silently skipping
+        // unrelated due jobs that haven't fired yet (#34432, #13992).
+        const lastRunAtMs = job.state.lastRunAtMs;
+        const slotAlreadyExecuted =
+          typeof lastRunAtMs === "number" && lastRunAtMs >= job.state.nextRunAtMs;
+        const slotNeverRan = typeof lastRunAtMs !== "number";
+        const shouldAdvance = recomputeExpiredExecutedOnly
+          ? slotAlreadyExecuted
+          : slotAlreadyExecuted || slotNeverRan;
+        if (shouldAdvance) {
+          if (recomputeJobNextRunAtMs({ state, job, nowMs: now })) {
+            changed = true;
+          }
         }
       }
       return changed;
