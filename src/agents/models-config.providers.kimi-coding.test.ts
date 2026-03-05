@@ -30,6 +30,46 @@ describe("kimi-coding implicit provider (#22409)", () => {
     expect(provider.models[0].id).toBe("k2p5");
   });
 
+  it("should honor user-configured baseUrl over built-in default (#36353)", async () => {
+    const agentDir = mkdtempSync(join(tmpdir(), "openclaw-test-"));
+    const envSnapshot = captureEnv(["KIMI_API_KEY"]);
+    process.env.KIMI_API_KEY = "test-key";
+
+    try {
+      const providers = await resolveImplicitProviders({
+        agentDir,
+        explicitProviders: {
+          "kimi-coding": { baseUrl: "https://custom.kimi.example.com/v1/" },
+        },
+      });
+      expect(providers?.["kimi-coding"]?.baseUrl).toBe("https://custom.kimi.example.com/v1/");
+      // other defaults should remain intact
+      expect(providers?.["kimi-coding"]?.api).toBe("anthropic-messages");
+    } finally {
+      envSnapshot.restore();
+    }
+  });
+
+  it("should honor user-configured api over built-in default (#36353)", async () => {
+    const agentDir = mkdtempSync(join(tmpdir(), "openclaw-test-"));
+    const envSnapshot = captureEnv(["KIMI_API_KEY"]);
+    process.env.KIMI_API_KEY = "test-key";
+
+    try {
+      const providers = await resolveImplicitProviders({
+        agentDir,
+        explicitProviders: {
+          "kimi-coding": { api: "openai-completions" },
+        },
+      });
+      expect(providers?.["kimi-coding"]?.api).toBe("openai-completions");
+      // baseUrl should remain the default when not overridden
+      expect(providers?.["kimi-coding"]?.baseUrl).toBe("https://api.kimi.com/coding/");
+    } finally {
+      envSnapshot.restore();
+    }
+  });
+
   it("should not include kimi-coding when no API key is configured", async () => {
     const agentDir = mkdtempSync(join(tmpdir(), "openclaw-test-"));
     const envSnapshot = captureEnv(["KIMI_API_KEY"]);
