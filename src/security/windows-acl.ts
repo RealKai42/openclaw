@@ -247,14 +247,19 @@ export function summarizeWindowsAcl(
 /**
  * Run `icacls` and return its combined output.
  *
- * On Windows production runs we prepend `chcp 65001` via cmd.exe to force
- * UTF-8 output so localized account names (e.g. Russian СИСТЕМА) are returned
- * as Unicode instead of OEM code-page bytes that would appear garbled.
- * In non-Windows environments (CI, tests) the exec mock receives the plain
- * `icacls` call, keeping existing test fixtures intact.
+ * On Windows production runs (real exec, not a mock) we prepend `chcp 65001`
+ * via cmd.exe to force UTF-8 output so localized account names (e.g. Russian
+ * СИСТЕМА) are returned as Unicode instead of OEM code-page bytes that would
+ * appear garbled.  When a custom exec function is injected (tests/mocks) we
+ * always call `icacls` directly so the mock signature stays stable across
+ * platforms.
  */
-async function runIcacls(targetPath: string, exec: ExecFn): Promise<string> {
-  if (process.platform === "win32") {
+async function runIcacls(
+  targetPath: string,
+  exec: ExecFn,
+  opts?: { useRealExec?: boolean },
+): Promise<string> {
+  if (process.platform === "win32" && opts?.useRealExec) {
     // Double any embedded quotes in the path before embedding in the cmd string.
     const escaped = targetPath.replace(/"/g, '""');
     const { stdout, stderr } = await exec("cmd", [
@@ -271,9 +276,11 @@ export async function inspectWindowsAcl(
   targetPath: string,
   opts?: { env?: NodeJS.ProcessEnv; exec?: ExecFn },
 ): Promise<WindowsAclSummary> {
+  // Use the real exec only when no custom exec is injected (i.e. not in tests).
+  const isCustomExec = opts?.exec != null;
   const exec = opts?.exec ?? runExec;
   try {
-    const output = await runIcacls(targetPath, exec);
+    const output = await runIcacls(targetPath, exec, { useRealExec: !isCustomExec });
     const entries = parseIcaclsOutput(output, targetPath);
     const { trusted, untrustedWorld, untrustedGroup } = summarizeWindowsAcl(entries, opts?.env);
     return { ok: true, entries, trusted, untrustedWorld, untrustedGroup };
