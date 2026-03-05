@@ -339,11 +339,21 @@ function stripUnrecognizedKeysFromRaw(raw: unknown): {
     );
     let target: unknown = next;
     for (const seg of path) {
-      if (!target || typeof target !== "object" || Array.isArray(target)) {
+      if (!target || typeof target !== "object") {
         target = null;
         break;
       }
-      target = (target as Record<string | number, unknown>)[seg];
+      if (Array.isArray(target)) {
+        // Follow numeric indices into arrays (e.g. agents.list[0].unknownKey).
+        if (typeof seg === "number") {
+          target = target[seg];
+        } else {
+          target = null;
+          break;
+        }
+      } else {
+        target = (target as Record<string | number, unknown>)[seg];
+      }
     }
     if (!target || typeof target !== "object" || Array.isArray(target)) {
       continue;
