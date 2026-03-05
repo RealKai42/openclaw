@@ -20,7 +20,6 @@ Docs: https://docs.openclaw.ai
 
 ### Fixes
 
-
 - iMessage/cron completion announces: strip leaked inline reply tags (for example `[[reply_to:6100]]`) from user-visible completion text so announcement deliveries do not expose threading metadata. (#24600) Thanks @vincentkoc.
 - Agents/message tool media roots: always resolve the agent ID in the message tool so cron and hook sessions that have no explicit session key still use agent-scoped media local roots instead of falling back to default-only roots. (#36185)
 - Agents/context pruning: guard assistant thinking/text char estimation against malformed blocks (missing `thinking`/`text` strings or null entries) so pruning no longer crashes with malformed provider content. (openclaw#35146) thanks @Sid-Qin.
