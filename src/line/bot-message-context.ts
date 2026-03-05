@@ -245,6 +245,9 @@ async function finalizeLineInboundContext(params: {
   };
   locationContext?: ReturnType<typeof toLocationContext>;
   verboseLog: { kind: "inbound" | "postback"; mediaCount?: number };
+  groupHistories?: Map<string, HistoryEntry[]>;
+  historyKey?: string;
+  historyLimit?: number;
 }) {
   const { fromAddress, toAddress, originatingTo } = resolveLineAddresses({
     isGroup: params.source.isGroup,
@@ -282,9 +285,43 @@ async function finalizeLineInboundContext(params: {
     envelope: envelopeOptions,
   });
 
+  // Build combinedBody with pending history prepended (unmentioned messages that accumulated
+  // before this mention). BodyForAgent stays as raw user text; Body carries the full context.
+  let combinedBody = body;
+  if (params.historyKey && params.groupHistories && (params.historyLimit ?? 0) > 0) {
+    combinedBody = buildPendingHistoryContextFromMap({
+      historyMap: params.groupHistories,
+      historyKey: params.historyKey,
+      limit: params.historyLimit!,
+      currentMessage: combinedBody,
+      formatEntry: (entry) =>
+        formatInboundEnvelope({
+          channel: "LINE",
+          from: conversationLabel,
+          timestamp: entry.timestamp,
+          body: entry.body,
+          chatType: "group",
+          senderLabel: entry.sender,
+          envelope: envelopeOptions,
+        }),
+    });
+  }
+
+  // Structured history for the prompt pipeline (passed via InboundHistory so it survives
+  // even when BodyForAgent takes priority over Body in the prompt path).
+  const inboundHistory =
+    params.historyKey && params.groupHistories && (params.historyLimit ?? 0) > 0
+      ? (params.groupHistories.get(params.historyKey) ?? []).map((entry) => ({
+          sender: entry.sender,
+          body: entry.body,
+          timestamp: entry.timestamp,
+        }))
+      : undefined;
+
   const ctxPayload = finalizeInboundContext({
-    Body: body,
+    Body: combinedBody,
     BodyForAgent: params.rawBody,
+    InboundHistory: inboundHistory,
     RawBody: params.rawBody,
     CommandBody: params.rawBody,
     From: fromAddress,
@@ -405,6 +442,9 @@ export async function buildLineMessageContext(params: BuildLineMessageContextPar
     });
   }
 
+  // historyKey is only set for group chats; pending history is injected inside
+  // finalizeLineInboundContext via InboundHistory so it survives the BodyForAgent priority.
+  const historyKey = isGroup ? peerId : undefined;
   const { ctxPayload } = await finalizeLineInboundContext({
     cfg,
     account,
@@ -426,41 +466,10 @@ export async function buildLineMessageContext(params: BuildLineMessageContextPar
     },
     locationContext,
     verboseLog: { kind: "inbound", mediaCount: allMedia.length },
+    groupHistories,
+    historyKey,
+    historyLimit,
   });
-
-  // Inject pending history as context prefix when the bot is mentioned in a group.
-  // Unmentioned messages accumulate in groupHistories; they are prepended here so
-  // the agent has visibility into the conversation that preceded the mention.
-  const historyKey = isGroup ? peerId : undefined;
-  if (historyKey && groupHistories && (historyLimit ?? 0) > 0) {
-    const { envelopeOptions } = resolveInboundSessionEnvelopeContext({
-      cfg,
-      agentId: route.agentId,
-      sessionKey: route.sessionKey,
-    });
-    const conversationLabel = resolveLineConversationLabel({
-      isGroup,
-      groupId,
-      roomId,
-      senderLabel: userId ? `user:${userId}` : "unknown",
-    });
-    ctxPayload.Body = buildPendingHistoryContextFromMap({
-      historyMap: groupHistories,
-      historyKey,
-      limit: historyLimit!,
-      currentMessage: ctxPayload.Body ?? "",
-      formatEntry: (entry) =>
-        formatInboundEnvelope({
-          channel: "LINE",
-          from: conversationLabel,
-          timestamp: entry.timestamp,
-          body: entry.body,
-          chatType: "group",
-          senderLabel: entry.sender,
-          envelope: envelopeOptions,
-        }),
-    });
-  }
 
   return {
     ctxPayload,
