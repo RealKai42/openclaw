@@ -1,5 +1,9 @@
 import type { MessageEvent, StickerEventMessage, EventSource, PostbackEvent } from "@line/bot-sdk";
 import { formatInboundEnvelope } from "../auto-reply/envelope.js";
+import {
+  buildPendingHistoryContextFromMap,
+  type HistoryEntry,
+} from "../auto-reply/reply/history.js";
 import { finalizeInboundContext } from "../auto-reply/reply/inbound-context.js";
 import { formatLocationText, toLocationContext } from "../channels/location.js";
 import { resolveInboundSessionEnvelopeContext } from "../channels/session-envelope.js";
@@ -23,6 +27,8 @@ interface BuildLineMessageContextParams {
   cfg: OpenClawConfig;
   account: ResolvedLineAccount;
   commandAuthorized: boolean;
+  groupHistories?: Map<string, HistoryEntry[]>;
+  historyLimit?: number;
 }
 
 export type LineSourceInfo = {
@@ -362,7 +368,7 @@ async function finalizeLineInboundContext(params: {
 }
 
 export async function buildLineMessageContext(params: BuildLineMessageContextParams) {
-  const { event, allMedia, cfg, account, commandAuthorized } = params;
+  const { event, allMedia, cfg, account, commandAuthorized, groupHistories, historyLimit } = params;
 
   const source = event.source;
   const { userId, groupId, roomId, isGroup, peerId, route } = resolveLineInboundRoute({
@@ -421,6 +427,40 @@ export async function buildLineMessageContext(params: BuildLineMessageContextPar
     locationContext,
     verboseLog: { kind: "inbound", mediaCount: allMedia.length },
   });
+
+  // Inject pending history as context prefix when the bot is mentioned in a group.
+  // Unmentioned messages accumulate in groupHistories; they are prepended here so
+  // the agent has visibility into the conversation that preceded the mention.
+  const historyKey = isGroup ? peerId : undefined;
+  if (historyKey && groupHistories && (historyLimit ?? 0) > 0) {
+    const { envelopeOptions } = resolveInboundSessionEnvelopeContext({
+      cfg,
+      agentId: route.agentId,
+      sessionKey: route.sessionKey,
+    });
+    const conversationLabel = resolveLineConversationLabel({
+      isGroup,
+      groupId,
+      roomId,
+      senderLabel: userId ? `user:${userId}` : "unknown",
+    });
+    ctxPayload.Body = buildPendingHistoryContextFromMap({
+      historyMap: groupHistories,
+      historyKey,
+      limit: historyLimit!,
+      currentMessage: ctxPayload.Body ?? "",
+      formatEntry: (entry) =>
+        formatInboundEnvelope({
+          channel: "LINE",
+          from: conversationLabel,
+          timestamp: entry.timestamp,
+          body: entry.body,
+          chatType: "group",
+          senderLabel: entry.sender,
+          envelope: envelopeOptions,
+        }),
+    });
+  }
 
   return {
     ctxPayload,
