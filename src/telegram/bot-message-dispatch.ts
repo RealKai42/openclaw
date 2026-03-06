@@ -9,12 +9,12 @@ import { resolveDefaultModelForAgent } from "../agents/model-selection.js";
 import { resolveChunkMode } from "../auto-reply/chunk.js";
 import { clearHistoryEntriesIfEnabled } from "../auto-reply/reply/history.js";
 import { dispatchReplyWithBufferedBlockDispatcher } from "../auto-reply/reply/provider-dispatcher.js";
-import type { ReplyPayload } from "../auto-reply/types.js";
 import {
   HEARTBEAT_TOKEN,
   isSilentReplyPrefixText,
   SILENT_REPLY_TOKEN,
 } from "../auto-reply/tokens.js";
+import type { ReplyPayload } from "../auto-reply/types.js";
 import { removeAckReactionAfterReply } from "../channels/ack-reactions.js";
 import { logAckFailure, logTypingFailure } from "../channels/logging.js";
 import { createReplyPrefixOptions } from "../channels/reply-prefix.js";
